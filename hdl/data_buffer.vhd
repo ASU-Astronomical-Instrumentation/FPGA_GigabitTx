@@ -1,28 +1,63 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+package bus_multiplexer_pkg is
+    type bus_array is array(natural range <>) of std_logic_vector;
+end package;
+
 ----------------------------------------------------------------------------------
 -- Author : R. Stephenson
 -- Description : Data Buffer for incoming 8bit spectrum data to transmit. 
 -- data structure assumes all bins are restructered into appropiate bytes,
--- data held until spectrum data and ethernet module is aviable. 
+-- data held until spectrum data and ethernet module is aviable. Reading and 
+-- writing is symmetric.
 ----------------------------------------------------------------------------------
 
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity data_buffer is
     generic(
-        N : integer := 8;
+        N   : integer := 8; -- input data width
+        data_points  : integer := 9;  -- BINS*PFB_bitwidth/8 "data points"
     );
     port(
-        clk 
-        sclr
-        data
+        clk             : in std_logic;
+        done            : in std_logic;
+        rready,wready   : in std_logic;
+        data_in         : in bus_array(0 to data_points)(N-1 downto 0);
+
+        rvalid,wvalid   : out std_logic;
+        data_out        : out bus_array(0 to data_points)(N-1 downto 0)
     );
 end data_buffer;
 
-architecture Behavioral of data_buffer is 
+architecture behavioral of data_buffer is 
+    signal data_table : bus_array(0 to data_points)(N-1 downto 0);
+    signal loaded_data : std_logic;
 
 begin
+    process (clk)
+    begin
+        if (clk'event and clk='1') then 
+            if (loaded_data='0')
+                if (rready='1') then
+                    loaded_data<='1'
+                    data_table<=data_in;
+                end if;
+            else 
+                if (done='1') then
+                    loaded_data<='0';
+                    data_table<=(others=>(others=>"0"));
+                elsif (wready='1') then 
+                    data_table <= data_in;
+                else 
+                    NULL;
+                end if;
+            end if;
+        end if;
+    end process;
 
-
-    end Behavioral;
+    end behavioral;
