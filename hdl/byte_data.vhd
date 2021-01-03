@@ -11,7 +11,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity byte_data is
-    Port ( clk         : in  STD_LOGIC;
+    Port(  clk         : in  STD_LOGIC;
            start       : in  STD_LOGIC;
            advance     : in  STD_LOGIC;
            busy        : out STD_LOGIC := '0';
@@ -19,7 +19,8 @@ entity byte_data is
            data        : out STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
            data_user   : out STD_LOGIC                     := '0';               
            data_valid  : out STD_LOGIC                     := '0';
-           data_enable : out STD_LOGIC                     := '0');
+           data_enable : out STD_LOGIC                     := '0'
+        );
 end byte_data;
 
 architecture Behavioral of byte_data is
