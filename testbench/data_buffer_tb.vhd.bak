@@ -24,7 +24,7 @@ architecture testbench of data_buffer_tb is
     signal wready, rready   : std_logic;
     signal data_in          : bus_array(0 to data_points)(N-1 downto 0);
         
-    signal rwvalid          : std_logic;
+    signal wvalid,rvalid    : std_logic;
     signal data_out         : bus_array(0 to data_points)(N-1 downto 0);
     --signal empty            : std_logic;
     --signal full             : std_logic;   
@@ -33,7 +33,7 @@ architecture testbench of data_buffer_tb is
     component data_buffer 
     generic(
         N   : integer := 8; -- input data width
-        data_points  : integer := 5  -- BINS*PFB_bitwidth/8 "data points"
+        data_points  : integer := 5;  -- BINS*PFB_bitwidth/8 "data points"
     );
     port(
         clk             : in std_logic;
@@ -41,7 +41,7 @@ architecture testbench of data_buffer_tb is
         rready,wready   : in std_logic;
         data_in         : in bus_array(0 to data_points)(N-1 downto 0);
 
-        rwvalid         : out std_logic;
+        rvalid,wvalid   : out std_logic;
         data_out        : out bus_array(0 to data_points)(N-1 downto 0)
     );
     end component;
@@ -55,16 +55,17 @@ port map(
     rready      => rready,
     wready      => wready, 
     data_in     => data_in,       
-    rwvalid     => rwvalid, 
+    rvalid      => rvalid,
+    wvalid      => wvalid, 
     data_out    => data_out          
 );
 
 clk_p : process
 begin
     clk <= '0';
-    wait for 5 ns;
+    wait for 7 ns;
     clk <= '1';
-    wait for 5 ns;
+    wait for 7 ns;
 end process;
 
 
@@ -79,44 +80,42 @@ begin
     --------------------------------------------------------------------------------------
     --  LOAD 2 READ 2
     --------------------------------------------------------------------------------------
-    done <= '0';
+    
     wready <= '0';
     rready <= '0';
-    data_in<= (X"c0",X"ff",X"ee",X"0f",X"f0");
+    data_in<= (X"00",X"00",X"00",X"00",X"00");
     wait for 25 ns;
     
+    
+    data_in<= (X"c0",X"ff",X"ee",X"0f",X"f0");
     rready <= '1';
-    --data_in<= (X"c0",X"ff",X"ee",X"0f",X"f0");
-    wait for 17 ns;
+    wait for 11 ns;
 
-    data_in<= (X"00",X"00",X"00",X"00",X"00");
     rready <= '0';
     wait for 11 ns;
 
 
-    --data_in<= (X"AB",X"BA",X"0A",X"ff",X"A0");
-    wready <= '1';
+    data_in<= (X"AB",X"BA",X"0A",X"ff",X"A0");
+    rready <= '1';
     wait for 11 ns;
     
-    -- wready <= '0';
-    -- rready <= '0';
-    wready<='0';
-    done <='1';
+    wready <= '0';
+    rready <= '0';
     wait for 11 ns;
 
-    -- wready <= '1';
-    -- rready <= '0';
-    -- data_in<= (X"00",X"00",X"00",X"00",X"00");
-    -- wait for 25 ns;
+    wready <= '1';
+    rready <= '0';
+    data_in<= (X"00",X"00",X"00",X"00",X"00");
+    wait for 25 ns;
 
-    -- wready <= '0';
-    -- wait for 15 ns;
-    -- wready <= '1';
-    -- wait for 15 ns;
+    wready <= '0';
+    wait for 15 ns;
+    wready <= '1';
+    wait for 15 ns;
     
     rready <= '0';
     wready <= '0';
-    done <= '0';
+
     data_in<= (X"00",X"00",X"00",X"00",X"00");
 
     wait;
