@@ -1,3 +1,11 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+package bus_multiplexer_pkg is
+    type bus_array is array(natural range <>) of std_logic_vector;
+end package;
+
 ----------------------------------------------------------------------------------
 -- Engineer: Mike Field <hamster@snap.net.nz>
 -- 
@@ -15,12 +23,15 @@ entity byte_data is
            start       : in  STD_LOGIC;
            advance     : in  STD_LOGIC;
            busy        : out STD_LOGIC := '0';
+
            
            data        : out STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
            data_user   : out STD_LOGIC                     := '0';               
            data_valid  : out STD_LOGIC                     := '0';
-           data_enable : out STD_LOGIC                     := '0'
-        );
+           data_enable : out STD_LOGIC                     := '0';
+        
+           spec_data    : in bus_array(0 to data_points)(N-1 downto 0) 
+           );
 end byte_data;
 
 architecture Behavioral of byte_data is
@@ -31,7 +42,7 @@ architecture Behavioral of byte_data is
     constant udp_total_bytes   : integer := udp_header_bytes + data_bytes;
     signal start_internal      : std_logic := '0';
     signal counter : unsigned(11 downto 0) := (others => '0');
-    
+    constant dat_offs : unsigned(11 downto 0) := x"02C"; -- COUNT VAL WHEN USER DATA IS VALID
     
     -- Ethernet frame header 
     signal eth_src_mac       : std_logic_vector(47 downto 0) := x"DEADBEEF0123";
@@ -59,7 +70,47 @@ architecture Behavioral of byte_data is
     signal udp_dst_port      : std_logic_vector(15 downto 0) := x"1000";     -- port 4096
     signal udp_length        : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(udp_total_bytes, 16)); 
     signal udp_checksum      : std_logic_vector(15 downto 0) := x"0000";     -- Checksum is optional, and if presentincludes the data
+
+    ----------------------
+    --  DATA BUFFER BEGIN
+    ----------------------
+    signal data_table : bus_array(0 to data_points)(N-1 downto 0) := (others=>(others=>'0'));
+
+    component data_buffer 
+    port(
+        clk             : in std_logic;
+        done            : in std_logic;
+        rready,wready   : in std_logic;
+        data_in         : in bus_array(0 to data_points)(N-1 downto 0);
+
+        rwvalid         : out std_logic;
+        data_out        : out bus_array(0 to data_points)(N-1 downto 0)
+    );
+    end component;
+    --------------------
+    -- END DATA BUFFER
+    --------------------
+
+
 begin
+    ----------------------
+    --  DATA BUFFER BEGIN
+    ----------------------
+    dut : data_buffer
+    generic map( N=>N, data_points=>data_points )
+    port map(
+        clk         => clk,           
+        done        => not (data_user and data_valid),          
+        rready      => data_valid,
+        wready      => data_user_next, 
+        data_in     => spec_data,       
+        rwvalid     => open, 
+        data_out    => data_table          
+    );
+    --------------------
+    -- END DATA BUFFER
+    --------------------
+
    ----------------------------------------------
    -- Calculate the TCP checksum using logic
    -- This should all collapse down to a constant
@@ -183,21 +234,21 @@ generate_nibbles: process (clk)
               -- to "0000" due to assignement above CASE).
               ---------------------------------------------
               when x"02B" => data_user <= '1';
-              when x"02C" => NULL; 
-              when x"02D" => NULL; 
-              when x"02E" => NULL; 
-              when x"02F" => NULL; 
-              when x"030" => NULL; 
-              when x"031" => NULL; 
-              when x"032" => NULL; 
-              when x"033" => NULL; 
-              when x"034" => NULL; 
-              when x"035" => NULL; 
-              when x"036" => NULL; 
-              when x"037" => NULL; 
-              when x"038" => NULL; 
-              when x"039" => NULL; 
-              when x"03A" => NULL; 
+              when x"02C" to x"03A" => data <= data_table(counter - dat_offs);
+            --   when x"02D" => NULL; 
+            --   when x"02E" => NULL; 
+            --   when x"02F" => NULL; 
+            --   when x"030" => NULL; 
+            --   when x"031" => NULL; 
+            --   when x"032" => NULL; 
+            --   when x"033" => NULL; 
+            --   when x"034" => NULL; 
+            --   when x"035" => NULL; 
+            --   when x"036" => NULL; 
+            --   when x"037" => NULL; 
+            --   when x"038" => NULL; 
+            --   when x"039" => NULL; 
+            --   when x"03A" => NULL; 
               --------------------------------------------
               -- Ethernet Frame Check Sequence (CRC) will 
               -- be added here, overwriting these nibbles
