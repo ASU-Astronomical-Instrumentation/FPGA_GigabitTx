@@ -31,7 +31,7 @@ entity data_buffer is
         rready,wready   : in std_logic;
         data_in         : in bus_array(0 to data_points)(N-1 downto 0);
 
-        rwvalid   : out std_logic;
+        rwvalid         : out std_logic;
         data_out        : out bus_array(0 to data_points)(N-1 downto 0)
     );
 end data_buffer;

@@ -18,19 +18,23 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
+use work.bus_multiplexer_pkg.all;
+
 entity byte_data is
-    Port(  clk         : in  STD_LOGIC;
-           start       : in  STD_LOGIC;
-           advance     : in  STD_LOGIC;
-           busy        : out STD_LOGIC := '0';
+    generic (data_points : integer := 14); -- from 0x03a - 0x02c
+    port(  clk          : in  STD_LOGIC;
+           start        : in  STD_LOGIC;
+           advance      : in  STD_LOGIC;
+           busy         : out STD_LOGIC := '0';
 
            
-           data        : out STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
-           data_user   : out STD_LOGIC                     := '0';               
-           data_valid  : out STD_LOGIC                     := '0';
-           data_enable : out STD_LOGIC                     := '0';
+           data         : out STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
+           data_user    : out STD_LOGIC                     := '0';               
+           data_valid   : out STD_LOGIC                     := '0';
+           data_enable  : out STD_LOGIC                     := '0';
         
-           spec_data    : in bus_array(0 to data_points)(N-1 downto 0) 
+           db_rready    : in std_logic;    
+           spec_data    : in bus_array(0 to data_points)(7 downto 0) 
            );
 end byte_data;
 
@@ -96,15 +100,21 @@ begin
     ----------------------
     --  DATA BUFFER BEGIN
     ----------------------
+
+    signal done_i       : std_logic;
+    --signal rready_i     : std_logic;
+    signal wready_i     : std_logic;
+    signal rwvalid_i    : std_logic;
+
     dut : data_buffer
     generic map( N=>N, data_points=>data_points )
     port map(
         clk         => clk,           
-        done        => not (data_user and data_valid),          
-        rready      => data_valid,
+        done        => done_i,          
+        rready      => db_rready,
         wready      => data_user_next, 
         data_in     => spec_data,       
-        rwvalid     => open, 
+        rwvalid     => rwvalid_i, 
         data_out    => data_table          
     );
     --------------------
@@ -144,10 +154,12 @@ generate_nibbles: process (clk)
             data_enable <= '0';
             if advance = '1' then
                 data_enable <= '1';
-                if counter = 0 then
+                if counter = 0 then 
                     if start_internal = '1' or start = '1' then
+                        if rwvalid_i='0' then -- only start when data is loaded
                         counter         <= counter + 1;
                         start_internal  <= start;
+                        end if;
                     end if;
                 else
                     counter <= counter + 1;
@@ -163,7 +175,7 @@ generate_nibbles: process (clk)
               -- MAC Header 
               -----------------------------
               -- Ethernet destination
-              when x"001" => data <= eth_dst_mac(47 downto 40); data_valid <= '1';
+              when x"001" => data <= eth_dst_mac(47 downto 40); data_valid <= '1';  done_i<='0';
               when x"002" => data <= eth_dst_mac(39 downto 32);
               when x"003" => data <= eth_dst_mac(31 downto 24);
               when x"004" => data <= eth_dst_mac(23 downto 16);
@@ -233,7 +245,7 @@ generate_nibbles: process (clk)
               -- Finally! 16 bytes of user data (defaults 
               -- to "0000" due to assignement above CASE).
               ---------------------------------------------
-              when x"02B" => data_user <= '1';
+              when x"02B" => data_user <= '1'; wready <= '1';
               when x"02C" to x"03A" => data <= data_table(counter - dat_offs);
             --   when x"02D" => NULL; 
             --   when x"02E" => NULL; 
@@ -253,7 +265,7 @@ generate_nibbles: process (clk)
               -- Ethernet Frame Check Sequence (CRC) will 
               -- be added here, overwriting these nibbles
               --------------------------------------------
-              when x"43B" => data_valid <= '0'; data_user <= '0';
+              when x"43B" => data_valid <= '0'; data_user <= '0'; wready_i<='0'; done_i<='1'; --rready<='1';
               when x"43C" => NULL;
               when x"43D" => NULL;
               when x"43E" => NULL;
