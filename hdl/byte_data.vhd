@@ -1,11 +1,3 @@
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
-
-package bus_multiplexer_pkg is
-    type bus_array is array(natural range <>) of std_logic_vector;
-end package;
-
 ----------------------------------------------------------------------------------
 -- Engineer: Mike Field <hamster@snap.net.nz>
 -- 
@@ -18,39 +10,43 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-use work.bus_multiplexer_pkg.all;
-
 entity byte_data is
-    generic (data_points : integer := 14); -- from 0x03a - 0x02c
-    port(  clk          : in  STD_LOGIC;
-           start        : in  STD_LOGIC;
-           advance      : in  STD_LOGIC;
-           busy         : out STD_LOGIC := '0';
-
+    Port ( clk         : in  STD_LOGIC;
+           start       : in  STD_LOGIC;
+           advance     : in  STD_LOGIC;
+           busy        : out STD_LOGIC := '0';
            
-           data         : out STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
-           data_user    : out STD_LOGIC                     := '0';               
-           data_valid   : out STD_LOGIC                     := '0';
-           data_enable  : out STD_LOGIC                     := '0';
-        
-           db_rready    : in std_logic;    
-           spec_data    : in bus_array(0 to data_points)(7 downto 0) 
+           -- Ethernet UDP SOURCE & DEST.    
+           -- Ethernet frame header 
+            eth_src_mac       : in std_logic_vector(47 downto 0) := x"DEADBEEF0123";
+            eth_dst_mac       : in std_logic_vector(47 downto 0) := x"FFFFFFFFFFFF";
+
+            ip_src_addr       : in std_logic_vector(31 downto 0) := x"C0_A4_01_40"; -- 192.168.1.64
+            ip_dst_addr       : in std_logic_vector(31 downto 0) := x"FF_FF_FF_FF"; -- 255.255.255.255
+           --- END OF Ethernet UDP SOURCE & DEST. 
+
+           data        : out STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
+           data_user   : out STD_LOGIC                     := '0';               
+           data_valid  : out STD_LOGIC                     := '0';
+           data_enable : out STD_LOGIC                     := '0';
+           -- user ports
+           data_0      : in STD_LOGIC_VECTOR (7 downto 0)
            );
 end byte_data;
 
 architecture Behavioral of byte_data is
     constant ip_header_bytes   : integer := 20;
     constant udp_header_bytes  : integer := 8;
-    constant data_bytes        : integer := 16+1024;
+    constant data_bytes        : integer := 8192+16;
     constant ip_total_bytes    : integer := ip_header_bytes + udp_header_bytes + data_bytes;
     constant udp_total_bytes   : integer := udp_header_bytes + data_bytes;
     signal start_internal      : std_logic := '0';
-    signal counter : unsigned(11 downto 0) := (others => '0');
-    constant dat_offs : unsigned(11 downto 0) := x"02C"; -- COUNT VAL WHEN USER DATA IS VALID
+    signal counter : unsigned(13 downto 0) := (others => '0');
+    
     
     -- Ethernet frame header 
-    signal eth_src_mac       : std_logic_vector(47 downto 0) := x"DEADBEEF0123";
-    signal eth_dst_mac       : std_logic_vector(47 downto 0) := x"FFFFFFFFFFFF";
+    --signal eth_src_mac       : std_logic_vector(47 downto 0) := x"DEADBEEF0123";
+    --signal eth_dst_mac       : std_logic_vector(47 downto 0) := x"FFFFFFFFFFFF";
     signal eth_type          : std_logic_vector(15 downto 0) := x"0800";
 
     -- IP header
@@ -63,8 +59,8 @@ architecture Behavioral of byte_data is
     signal ip_ttl            : std_logic_vector( 7 downto 0)  := x"80";
     signal ip_protocol       : std_logic_vector( 7 downto 0)  := x"11";
     signal ip_checksum       : std_logic_vector(15 downto 0) := x"0000";   -- Calcuated later on
-    signal ip_src_addr       : std_logic_vector(31 downto 0) := x"C0A40140"; -- 192.168.1.64
-    signal ip_dst_addr       : std_logic_vector(31 downto 0) := x"FFFFFFFF"; -- 255.255.255.255
+    --signal ip_src_addr       : std_logic_vector(31 downto 0) := x"C0A40140"; -- 192.168.1.64
+    --signal ip_dst_addr       : std_logic_vector(31 downto 0) := x"FFFFFFFF"; -- 255.255.255.255
     -- for calculating the checksum 
     signal ip_checksum1     : unsigned(31 downto 0) := (others => '0');
     signal ip_checksum2     : unsigned(15 downto 0) := (others => '0');
@@ -74,53 +70,7 @@ architecture Behavioral of byte_data is
     signal udp_dst_port      : std_logic_vector(15 downto 0) := x"1000";     -- port 4096
     signal udp_length        : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(udp_total_bytes, 16)); 
     signal udp_checksum      : std_logic_vector(15 downto 0) := x"0000";     -- Checksum is optional, and if presentincludes the data
-
-    ----------------------
-    --  DATA BUFFER BEGIN
-    ----------------------
-    signal data_table : bus_array(0 to data_points)(N-1 downto 0) := (others=>(others=>'0'));
-
-    component data_buffer 
-    port(
-        clk             : in std_logic;
-        done            : in std_logic;
-        rready,wready   : in std_logic;
-        data_in         : in bus_array(0 to data_points)(N-1 downto 0);
-
-        rwvalid         : out std_logic;
-        data_out        : out bus_array(0 to data_points)(N-1 downto 0)
-    );
-    end component;
-    --------------------
-    -- END DATA BUFFER
-    --------------------
-
-
 begin
-    ----------------------
-    --  DATA BUFFER BEGIN
-    ----------------------
-
-    signal done_i       : std_logic;
-    --signal rready_i     : std_logic;
-    signal wready_i     : std_logic;
-    signal rwvalid_i    : std_logic;
-
-    dut : data_buffer
-    generic map( N=>N, data_points=>data_points )
-    port map(
-        clk         => clk,           
-        done        => done_i,          
-        rready      => db_rready,
-        wready      => data_user_next, 
-        data_in     => spec_data,       
-        rwvalid     => rwvalid_i, 
-        data_out    => data_table          
-    );
-    --------------------
-    -- END DATA BUFFER
-    --------------------
-
    ----------------------------------------------
    -- Calculate the TCP checksum using logic
    -- This should all collapse down to a constant
@@ -147,19 +97,18 @@ generate_nibbles: process (clk)
         if rising_edge(clk) then
             -- Update the counter of where we are 
             -- in the packet
-            if start = '1' then           
-                start_internal <= '1';
-            end if;
+--            if start = '1' then           
+--                start_internal <= '1';
+--            end if;
 
             data_enable <= '0';
             if advance = '1' then
                 data_enable <= '1';
-                if counter = 0 then 
-                    if start_internal = '1' or start = '1' then
-                        if rwvalid_i='0' then -- only start when data is loaded
+                if counter = 0 then
+                    --if start_internal = '1' or start = '1' then
+                    if start = '1' then
                         counter         <= counter + 1;
-                        start_internal  <= start;
-                        end if;
+                        --start_internal  <= start;
                     end if;
                 else
                     counter <= counter + 1;
@@ -168,107 +117,94 @@ generate_nibbles: process (clk)
             
             -- Note, this uses the current value of counter, not the one assigned above!
             data <= "00000000";
-            case counter is 
+            case to_integer(counter) is 
               -- We pause at 0 count when idle (see below case statement)
-              when x"000" => NULL;
+              when 0 => NULL;  busy  <= '0';
               -----------------------------
               -- MAC Header 
               -----------------------------
               -- Ethernet destination
-              when x"001" => data <= eth_dst_mac(47 downto 40); data_valid <= '1';  done_i<='0';
-              when x"002" => data <= eth_dst_mac(39 downto 32);
-              when x"003" => data <= eth_dst_mac(31 downto 24);
-              when x"004" => data <= eth_dst_mac(23 downto 16);
-              when x"005" => data <= eth_dst_mac(15 downto  8);
-              when x"006" => data <= eth_dst_mac( 7 downto  0);
+              when 1 => data <= eth_dst_mac(47 downto 40); data_valid <= '1';  busy  <= '1';
+              when 2 => data <= eth_dst_mac(39 downto 32);
+              when 3 => data <= eth_dst_mac(31 downto 24);
+              when 4 => data <= eth_dst_mac(23 downto 16);
+              when 5 => data <= eth_dst_mac(15 downto  8);
+              when 6 => data <= eth_dst_mac( 7 downto  0);
               -- Ethernet source
-              when x"007" => data <= eth_src_mac(47 downto 40);
-              when x"008" => data <= eth_src_mac(39 downto 32);
-              when x"009" => data <= eth_src_mac(31 downto 24);
-              when x"00A" => data <= eth_src_mac(23 downto 16);
-              when x"00B" => data <= eth_src_mac(15 downto  8);
-              when x"00C" => data <= eth_src_mac( 7 downto  0);
+              when 7 => data <= eth_src_mac(47 downto 40);
+              when 8 => data <= eth_src_mac(39 downto 32);
+              when 9 => data <= eth_src_mac(31 downto 24);
+              when 10 => data <= eth_src_mac(23 downto 16);
+              when 11 => data <= eth_src_mac(15 downto  8);
+              when 12 => data <= eth_src_mac( 7 downto  0);
               -- Ether Type 08:00
-              when x"00D" => data <= eth_type(15 downto  8);
-              when x"00E" => data <= eth_type( 7 downto  0);
+              when 13 => data <= eth_type(15 downto  8);
+              when 14 => data <= eth_type( 7 downto  0);
               -------------------------
               -- User data packet
               ------------------------------
               -- IPv4 Header
               ----------------------------
-              when x"00F" => data <= ip_version & ip_header_len;              
-              when x"010" => data <= ip_dscp_ecn( 7 downto  0);
+              when 15 => data <= ip_version & ip_header_len;              
+              when 16 => data <= ip_dscp_ecn( 7 downto  0);
               -- Length of total packet (excludes etherent header and ethernet FCS) = 0x0030
-              when x"011" => data <= ip_length(15 downto  8);
-              when x"012" => data <= ip_length( 7 downto  0);
+              when 17 => data <= ip_length(15 downto  8);
+              when 18 => data <= ip_length( 7 downto  0);
               -- all zeros
-              when x"013" => data <= ip_identification(15 downto  8);
-              when x"014" => data <= ip_identification( 7 downto  0);
+              when 19 => data <= ip_identification(15 downto  8);
+              when 20 => data <= ip_identification( 7 downto  0);
               -- No flags, no frament offset.
-              when x"015" => data <= ip_flags_and_frag(15 downto  8);
-              when x"016" => data <= ip_flags_and_frag( 7 downto  0);
+              when 21 => data <= ip_flags_and_frag(15 downto  8);
+              when 22 => data <= ip_flags_and_frag( 7 downto  0);
               -- Time to live
-              when x"017" => data <= ip_ttl( 7 downto  0);
+              when 23 => data <= ip_ttl( 7 downto  0);
               -- Protocol (UDP)
-              when x"018" => data <= ip_protocol( 7 downto  0);
+              when 24 => data <= ip_protocol( 7 downto  0);
               -- Header checksum
-              when x"019" => data <= ip_checksum(15 downto  8);
-              when x"01A" => data <= ip_checksum( 7 downto  0);
+              when 25 => data <= ip_checksum(15 downto  8);
+              when 26 => data <= ip_checksum( 7 downto  0);
               -- source address
-              when x"01B" => data <= ip_src_addr(31 downto 24);
-              when x"01C" => data <= ip_src_addr(23 downto 16);
-              when x"01D" => data <= ip_src_addr(15 downto  8);
-              when x"01E" => data <= ip_src_addr( 7 downto  0);
+              when 27 => data <= ip_src_addr(31 downto 24);
+              when 28 => data <= ip_src_addr(23 downto 16);
+              when 29 => data <= ip_src_addr(15 downto  8);
+              when 30 => data <= ip_src_addr( 7 downto  0);
               -- dest address
-              when x"01F" => data <= ip_dst_addr(31 downto 24);
-              when x"020" => data <= ip_dst_addr(23 downto 16);
-              when x"021" => data <= ip_dst_addr(15 downto  8);
-              when x"022" => data <= ip_dst_addr( 7 downto  0);
+              when 31 => data <= ip_dst_addr(31 downto 24);
+              when 32 => data <= ip_dst_addr(23 downto 16);
+              when 33 => data <= ip_dst_addr(15 downto  8);
+              when 34 => data <= ip_dst_addr( 7 downto  0);
               -- No options in this packet
               
               ------------------------------------------------
               -- UDP/IP Header - from port 4096 to port 4096
               ------------------------------------------------
               -- Source port 4096
-              when x"023" => data <= udp_src_port(15 downto  8);
-              when x"024" => data <= udp_src_port( 7 downto  0);
+              when 35 => data <= udp_src_port(15 downto  8);
+              when 36 => data <= udp_src_port( 7 downto  0);
               -- Target port 4096
-              when x"025" => data <= udp_dst_port(15 downto  8);
-              when x"026" => data <= udp_dst_port( 7 downto  0);
+              when 37 => data <= udp_dst_port(15 downto  8);
+              when 38 => data <= udp_dst_port( 7 downto  0);
               -- UDP Length (header + data) 24 octets
-              when x"027" => data <= udp_length(15 downto  8);
-              when x"028" => data <= udp_length( 7 downto  0);
+              when 39 => data <= udp_length(15 downto  8);
+              when 40 => data <= udp_length( 7 downto  0);
               -- UDP Checksum not suppled
-              when x"029" => data <= udp_checksum(15 downto  8);
-              when x"02A" => data <= udp_checksum( 7 downto  0);
+              when 41 => data <= udp_checksum(15 downto  8);
+              when 42 => data <= udp_checksum( 7 downto  0);
               --------------------------------------------
               -- Finally! 16 bytes of user data (defaults 
               -- to "0000" due to assignement above CASE).
               ---------------------------------------------
-              when x"02B" => data_user <= '1'; wready <= '1';
-              when x"02C" to x"03A" => data <= data_table(counter - dat_offs);
-            --   when x"02D" => NULL; 
-            --   when x"02E" => NULL; 
-            --   when x"02F" => NULL; 
-            --   when x"030" => NULL; 
-            --   when x"031" => NULL; 
-            --   when x"032" => NULL; 
-            --   when x"033" => NULL; 
-            --   when x"034" => NULL; 
-            --   when x"035" => NULL; 
-            --   when x"036" => NULL; 
-            --   when x"037" => NULL; 
-            --   when x"038" => NULL; 
-            --   when x"039" => NULL; 
-            --   when x"03A" => NULL; 
-              --------------------------------------------
+               when 43 => data <= data_0; data_user <= '1';
+               when 44 to 8235 =>  data <= data_0; -- this works
+               -- 16B here are '0x00'
+              ---------------------------------------------
               -- Ethernet Frame Check Sequence (CRC) will 
               -- be added here, overwriting these nibbles
-              --------------------------------------------
-              when x"43B" => data_valid <= '0'; data_user <= '0'; wready_i<='0'; done_i<='1'; --rready<='1';
-              when x"43C" => NULL;
-              when x"43D" => NULL;
-              when x"43E" => NULL;
+              ---------------------------------------------
+              when 8251 => data_valid <= '0'; data_user <= '0';
+              when 8252 => NULL;
+              when 8253 => NULL;
+              when 8254 => NULL;
               ----------------------------------------------------------------------------------
               -- End of frame - there needs to be at least 20 octets before  sending 
               -- the next packet, (maybe more depending  on medium?) 12 are for the inter packet
@@ -277,7 +213,7 @@ generate_nibbles: process (clk)
               -- Note that when the count of 0000 adds one  more nibble, so if start is assigned 
               -- '1' this should be minimum that is  within spec.
               ----------------------------------------------------------------------------------
-              when x"451" => counter <= (others => '0'); busy  <= '0';
+              when 8273 => counter <= (others => '0'); busy  <= '0';
               when others => data <= "00000000";
             end case;
          end if;    

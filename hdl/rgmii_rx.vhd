@@ -26,7 +26,7 @@ use IEEE.NUMERIC_STD.ALL;
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx leaf cells in this code.
 library UNISIM;
-use UNISIM.VComponents.all;
+use UNISIM.vcomponents.all;
 
 entity rgmii_rx is
     Port ( rx_clk           : in  STD_LOGIC;
@@ -46,15 +46,15 @@ architecture Behavioral of rgmii_rx is
     signal raw_ctl  : std_logic_vector(1 downto 0);
     signal raw_data : std_logic_vector(7 downto 0) := (others => '0');
 begin
-ddr_rx_ctl : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "SYNC")  
+ddr_rx_ctl : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "ASYNC")  
     port map (Q1 => raw_ctl(0), Q2 => raw_ctl(1), C  => rx_clk, CE => '1', D  => rx_ctl, R  => '0', S  => '0');
-ddr_rxd0 : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "SYNC")  
+ddr_rxd0 : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "ASYNC")  
     port map (Q1 => raw_data(0), Q2 => raw_data(4), C  => rx_clk, CE => '1', D  => rx_data(0), R  => '0', S  => '0');
-ddr_rxd1 : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "SYNC")  
+ddr_rxd1 : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "ASYNC")  
     port map (Q1 => raw_data(1), Q2 => raw_data(5), C  => rx_clk, CE => '1', D  => rx_data(1), R  => '0', S  => '0');
-ddr_rxd2 : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "SYNC")  
+ddr_rxd2 : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "ASYNC")  
     port map (Q1 => raw_data(2), Q2 => raw_data(6), C  => rx_clk, CE => '1', D  => rx_data(2), R  => '0', S  => '0');
-ddr_rxd3 : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "SYNC")  
+ddr_rxd3 : IDDR generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '0', INIT_Q2 => '0', SRTYPE => "ASYNC")  
     port map (Q1 => raw_data(3), Q2 => raw_data(7), C  => rx_clk, CE => '1', D  => rx_data(3), R  => '0', S  => '0');
 
 process(rx_clk) 

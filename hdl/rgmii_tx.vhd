@@ -24,7 +24,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 library UNISIM;
-use UNISIM.VComponents.all;
+use UNISIM.vcomponents.all;
 
 entity rgmii_tx is
     Port ( clk         : in STD_LOGIC;
@@ -150,18 +150,18 @@ process(clk)
    ----------------------------------------------------
    -- DDR output registers 
    ----------------------------------------------------
-tx_d0  : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "SYNC")
+tx_d0  : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "ASYNC")
               port map (Q  => eth_txd(0), C  => clk, CE => '1', R  => '0', S  => '0', D1 => dout(0), D2 => dout(4));
-tx_d1  : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "SYNC")
+tx_d1  : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "ASYNC")
               port map (Q  => eth_txd(1), C  => clk, CE => '1', R  => '0', S  => '0', D1 => dout(1), D2 => dout(5));
-tx_d2  : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "SYNC")
+tx_d2  : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "ASYNC")
               port map (Q  => eth_txd(2), C  => clk, CE => '1', R  => '0', S  => '0', D1 => dout(2), D2 => dout(6));
-tx_d3  : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "SYNC")
+tx_d3  : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "ASYNC")
               port map (Q  => eth_txd(3), C  => clk, CE => '1', R  => '0', S  => '0', D1 => dout(3), D2 => dout(7));
-tx_ctl : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "SYNC")
+tx_ctl : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "ASYNC")
               port map (Q  => eth_txctl,   C  => clk, CE => '1', R  => '0', S  => '0', D1 => doutctl(0), D2 => doutctl(1));
 
-tx_c   : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "SYNC")
+tx_c   : ODDR generic map( DDR_CLK_EDGE => "SAME_EDGE", INIT         => '0', SRTYPE       => "ASYNC")
               port map (Q  => eth_txck,  C  => clk90, CE => '1', R  => '0', S  => '0', D1 => doutclk(0), D2 => doutclk(1));
     
 monitor_reset_state: process(clk)
